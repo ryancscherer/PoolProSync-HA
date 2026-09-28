@@ -1,7 +1,10 @@
 """Sensor platform for PoolPro Sync.
 
-Entity definitions here are placeholders. Replace the keys/units below once
-the real telemetry fields are documented in API_NOTES.md.
+Property keys and units come from the device's JetLinks metadata schema
+(see API_NOTES.md). Values are exposed as reported by the device — scaling
+(e.g. whether WaterTemp is whole degrees or tenths) has not been confirmed
+against the app's display yet, so treat absolute values with a grain of
+salt until cross-checked.
 """
 
 from __future__ import annotations
@@ -18,23 +21,16 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN
 from .coordinator import PoolProSyncCoordinator
 
-# TODO: replace with real fields from API_NOTES.md (key must match the
-# coordinator's data dict once async_get_status() is implemented).
 SENSOR_DESCRIPTIONS: tuple[SensorEntityDescription, ...] = (
-    SensorEntityDescription(
-        key="water_temperature",
-        name="Water Temperature",
-        native_unit_of_measurement="°F",
-    ),
-    SensorEntityDescription(
-        key="ph",
-        name="pH",
-    ),
-    SensorEntityDescription(
-        key="chlorine",
-        name="Chlorine",
-        native_unit_of_measurement="ppm",
-    ),
+    SensorEntityDescription(key="WaterTemp", name="Water Temperature"),
+    SensorEntityDescription(key="internal_temperature", name="Controller Temperature"),
+    SensorEntityDescription(key="SaltLevel", name="Salt Level", native_unit_of_measurement="ppm"),
+    SensorEntityDescription(key="CellStatus", name="Cell Status"),
+    SensorEntityDescription(key="ActualOutput", name="Chlorine Output", native_unit_of_measurement="%"),
+    SensorEntityDescription(key="ChlorineProduction", name="Chlorine Production", native_unit_of_measurement="g"),
+    SensorEntityDescription(key="COPPER_LEVEL", name="Copper Level", native_unit_of_measurement="ppm"),
+    SensorEntityDescription(key="Fault", name="Fault Code"),
+    SensorEntityDescription(key="WIFI_RSSI", name="Wi-Fi Signal"),
 )
 
 
