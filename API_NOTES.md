@@ -1,106 +1,207 @@
 # PoolPro Sync API Notes (reverse-engineered)
 
-> Filled in from real HTTP transaction captures. Request/response bodies are
-> still TODO — captures so far show method/URL/status/size only, not full
-> headers or JSON payloads.
+PoolPro Sync's backend is a **JetLinks**-based IoT platform (a Chinese
+open-source IoT device management stack). The app talks to it over plain
+HTTP/WebSocket, not the `apiali.crystalas.com` HTTPS host (that host appears
+to be unrelated background/analytics traffic — every capture showed it only
+as an empty `CONNECT` tunnel).
 
 ## Base URL
 
-- `http://47.236.42.212:8850/api/` — **plain HTTP, not HTTPS.** Confirmed via
-  packet capture: the app talks directly to this raw IP, not a hostname.
-- `https://apiali.crystalas.com` also appears in captures, but every
-  observed connection to it was a `CONNECT` tunnel with 0 bytes transferred —
-  likely unrelated background/analytics traffic, not the real data API. Not
-  yet confirmed either way.
-- Several `dcloud.net.cn` subdomains (`gac1`, `gac2`, `bgac`, `s1`, `s2`,
-  `bs1`, `er`) also show up — these are DCloud/uni-app framework
-  infrastructure (the app is built on uni-app/HBuilder), used for framework
-  update checks and analytics. Not the pool data API.
+- `http://47.236.42.212:8850/api/` — plain HTTP, confirmed via full packet
+  capture (headers + bodies).
+- Also seen: `gac1/gac2/bgac/s1/s2/bs1/er.dcloud.net.cn` — DCloud/uni-app
+  framework infrastructure (the app is built on uni-app/HBuilder). Unrelated
+  to the pool data API.
 
 ## Authentication
 
-- Flow type: username/password POST → returns a token used in later requests
-  (exact response shape not yet captured).
-- Login endpoint: `POST http://47.236.42.212:8850/api/authorize/login`
-  - Observed: 200 response, ~1.84 KB body. One capture also showed a failed
-    attempt (`Code 0`, 119 B) — possibly a retry/transient drop.
-  - Request body: `TODO` — need to capture full request (likely
-    `{"username": ..., "password": ...}` or similar).
-  - Response body: `TODO` — need full JSON. Almost certainly contains the
-    token/session id used in the `/api/messaging/{token}` WebSocket URL and
-    probably an auth header/cookie used by later requests.
-- Token storage: `TODO` — need headers from a post-login request to see if
-  it's a bearer header, custom header, or cookie.
-- Token expiry / refresh endpoint: `TODO`
+`POST /api/authorize/login`
 
-**Security note (not our bug, just an observation):** login credentials are
-sent over **unencrypted HTTP** directly to an IP address. Worth being aware
-of, but out of scope to fix — just don't reuse a sensitive password for this
-account.
+Request body:
+```json
+{
+  "username": "websocket",
+  "password": "qushiyun@IOT123",
+  "remember": false,
+  "expires": 3600000,
+  "verifyCode": "",
+  "verifyKey": ""
+}
+```
 
-## Endpoints
+This is a fixed, non-account-specific login baked into the app itself —
+there's no separate "your PoolPro Sync account" credential involved in
+talking to this API. Response (trimmed):
 
-### Device detail / telemetry
+```json
+{
+  "message": "success",
+  "result": {
+    "token": "<session token>",
+    "expires": 3600000,
+    "userId": "...",
+    "user": { "username": "websocket", "...": "..." }
+  },
+  "status": 200
+}
+```
 
-- `GET http://47.236.42.212:8850/api/device-instance/{device_id}/detail`
-- Observed: `GET /api/device-instance/1CC3ABE2DD82/detail` → 200, 32.26 KB
-  response.
-- `{device_id}` looks like a MAC address (`1CC3ABE2DD82`) — likely the pool
-  controller's hardware identifier, obtained from a device-list call we
-  haven't captured yet (or possibly hardcoded from account/device pairing
-  done once at setup).
-- Response body: `TODO` — this is the big one; the 32 KB body almost
-  certainly contains all current pool status fields (temp, pH, chlorine,
-  pump state, etc). Need the full JSON.
-- Is there a separate "list my devices" call to discover `{device_id}`
-  values, or is it fixed per account? `TODO`
+- `result.token` is used as:
+  - the `X-Access-Token` header on subsequent HTTP requests, and
+  - the path segment in the messaging WebSocket URL:
+    `ws://<host>:<port>/api/messaging/{token}`
+- The app re-logs-in fairly often (observed several times per session) —
+  treat the token as short-lived and re-authenticate on WebSocket reconnect.
 
-### Real-time updates
+## Device detail (metadata/schema)
 
-- `GET ws://47.236.42.212:8850/api/messaging/{token}` — WebSocket upgrade
-  (101 Switching Protocols).
-- Observed token in URL: `ec4d3a9fbdaf3a153b06efddc0c84467` — looks like it
-  could be the session token from login, or a separate messaging-channel id.
-- Message format over the socket: `TODO` — need to capture actual WS frames
-  to see if this pushes live telemetry (would let the HA integration avoid
-  polling entirely and just listen).
+`GET /api/device-instance/{device_id}/detail`
 
-### Controls (if any)
+Header: `X-Access-Token: {token}`
 
-| Action | Method | Endpoint | Payload |
+`{device_id}` is a MAC-like identifier (e.g. `1CC3ABE2DD82`) found in the
+PoolPro Sync app's device details screen — used as-is, not looked up via a
+separate "list my devices" call (not implemented here — see below).
+
+Response `result.metadata` is a JSON-encoded string containing the full
+JetLinks "thing model": a `properties` array (id, name, value type, unit,
+read/write/report capability) plus `functions` (invokable commands) and
+`events`. This is effectively the device's full schema — see
+`custom_components/poolpro_sync/sensor.py`, `switch.py`, and `select.py` for
+the subset currently wired up as HA entities. Confirmed device in this
+capture: product `SLIMLINE`, a salt chlorinator ("SL系列盐氯机").
+
+Key properties confirmed live (via the WebSocket, see below):
+
+| Property | Type/Unit | Capability | Notes |
 |---|---|---|---|
-| Pump on/off | `TODO` | `TODO` | `TODO` |
-| Heater setpoint | `TODO` | `TODO` | `TODO` |
-| Lights | `TODO` | `TODO` | `TODO` |
+| `WaterTemp` | int, celsiusDegrees | read, report | scaling vs. app display unconfirmed |
+| `SaltLevel` | int, ppm | read, report | |
+| `internal_temperature` | int, celsiusDegrees | read, report | |
+| `CellStatus` | enum ON/OFF/PURGE | read, report | |
+| `PumpStatus` | enum ON/OFF | read, report | not writable |
+| `PowerMode` | enum AUTO/OFF/ON | read, write, report | write confirmed working |
+| `WorkMode` | enum NULL/SPA/WINTER/BOOST/BACKWASH/SALT_TEST/SALT_ADD | read, write, report | |
+| `pHStatus` | enum ON/OFF | read, report | |
+| `pHSwitch` | enum, values `"0"`/`"1"` (not "OFF"/"ON") | read, write, report | |
+| `ActualOutput` / `OutputSetPoint` | int, percent | read(/write), report | |
+| `ChlorineProduction` | int, gramme | read, report | |
+| `COPPER_LEVEL` | float, ppm, scale 2 | read, write, report | mineral/copper systems |
+| `Fault` | int | report | fault/alarm code |
+| `WIFI_RSSI` | int | read, report | |
 
-Not yet captured — need a traffic capture while toggling a control in the
-app.
+Many more properties exist for timers (`T1_On HH/MM`, `P1_On HH/MM`, etc.),
+LCD brightness/contrast, socket assignments, and factory-menu settings — see
+the full `metadata` blob for the complete list.
 
-## Polling behavior observed in the app
+## Real-time messaging (WebSocket)
 
-- The device detail endpoint was hit repeatedly (multiple captures show it
-  called every session); exact interval not yet measured precisely.
-- No rate limiting (429s) observed so far.
+`GET ws://{host}:{port}/api/messaging/{token}` — upgrades to a persistent
+WebSocket (`101 Switching Protocols`). This is the primary way to get live
+data; polling the detail endpoint isn't necessary.
 
-## Quirks / gotchas
+### Subscribe to property reports
 
-- Certificate pinning: not directly tested yet — the real API traffic
-  bypasses this question entirely since it's plain HTTP, not HTTPS. Pinning
-  may still apply to the `apiali.crystalas.com` HTTPS calls if those turn
-  out to matter.
-- The app appears to retry the login call — saw one immediate duplicate
-  `POST /api/authorize/login` in a single session.
-- Capturing this traffic requires disabling any active VPN (e.g. ExpressVPN)
-  first, since Android only allows one active VPN interface — PCAPdroid's
-  non-root capture mode needs that slot.
+```json
+{
+  "type": "sub",
+  "topic": "/device/{productId}/{deviceId}/**",
+  "parameter": { "headers": { "async": false } },
+  "id": "<timestamp-ms>"
+}
+```
 
-## Still needed
+The server then pushes messages as properties change:
 
-1. Full request/response **headers + JSON body** for:
-   - `POST /api/authorize/login`
-   - `GET /api/device-instance/{device_id}/detail`
-2. Whether there's a "list devices" call, or `device_id` is fixed per
-   account.
-3. WebSocket message format on `/api/messaging/{token}`.
-4. Traffic capture while toggling a control (pump/heater/lights) in the app,
-   if the app supports any.
+```json
+{
+  "payload": {
+    "deviceId": "...",
+    "messageType": "REPORT_PROPERTY",
+    "properties": { "WaterTemp": 215, "SaltLevel": 3693, "...": "..." },
+    "timestamp": 1790593755812
+  },
+  "topic": "/device/{productId}/{deviceId}/message/property/report",
+  "type": "result"
+}
+```
+
+Properties arrive in batches, not all at once — the integration merges
+incoming batches into a running state dict rather than expecting a single
+full snapshot per message.
+
+### Request an immediate full snapshot
+
+Invoke the device's `triggerReport` function via the message-sender topic:
+
+```json
+{
+  "type": "sub",
+  "topic": "/device-message-sender/{productId}/{deviceId}",
+  "parameter": {
+    "messageType": "INVOKE_FUNCTION",
+    "inputs": [],
+    "timestamp": "<timestamp-ms>",
+    "functionId": "triggerReport",
+    "deviceId": "{deviceId}",
+    "headers": { "async": false }
+  },
+  "id": "<timestamp-ms>"
+}
+```
+
+This triggers a burst of `REPORT_PROPERTY` messages covering (most of) the
+full property set. The integration calls this on connect and then
+periodically (`FULL_REFRESH_INTERVAL_SECONDS` in `const.py`) to avoid stale
+values for properties that don't change often.
+
+### Write a property
+
+Confirmed working — captured toggling `PowerMode` from `AUTO` to `OFF` and
+back through the real app:
+
+```json
+{
+  "type": "sub",
+  "topic": "/device-message-sender/{productId}/{deviceId}",
+  "parameter": {
+    "messageType": "WRITE_PROPERTY",
+    "header": { "async": false },
+    "deviceId": "{deviceId}",
+    "messageId": "<timestamp-ms>",
+    "timestamp": "<timestamp-ms>",
+    "properties": { "PowerMode": "OFF" }
+  },
+  "id": "<timestamp-ms>"
+}
+```
+
+Reply:
+
+```json
+{
+  "payload": {
+    "messageType": "WRITE_PROPERTY_REPLY",
+    "properties": { "PowerMode": "OFF" },
+    "success": true
+  },
+  "type": "result"
+}
+```
+
+Followed shortly by a `REPORT_PROPERTY` message confirming the new value.
+
+## Still open
+
+1. Whether there's a legitimate "list my devices" call, or the device ID is
+   just something you copy once from the app — the integration currently
+   just asks for it during setup rather than trying to enumerate it.
+2. Confirm `WaterTemp` scaling against the app's displayed value (raw
+   readings alternated e.g. 215/210 within a few seconds, which may just be
+   simulator/test noise rather than a real reading).
+3. Traffic capture while using functions/timers not yet exercised (schedule
+   changes, factory menu, firmware `upgrade` function).
+4. Token lifetime / whether a proactive refresh is needed vs. just
+   reconnect-and-relogin on drop (current implementation just re-logs-in on
+   every WebSocket reconnect, which is simple and has worked in testing).
