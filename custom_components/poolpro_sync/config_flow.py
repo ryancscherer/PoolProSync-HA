@@ -39,7 +39,7 @@ class PoolProSyncConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     There's no per-account login — the app uses a fixed backend credential
     and identifies your equipment purely by its device ID (found in the
     PoolPro Sync app's device details screen, e.g. a MAC-like string such as
-    "1CC3ABE2DD82").
+    "AABBCC112233").
     """
 
     VERSION = 1
