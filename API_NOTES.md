@@ -76,9 +76,9 @@ Key properties confirmed live (via the WebSocket, see below):
 
 | Property | Type/Unit | Capability | Notes |
 |---|---|---|---|
-| `WaterTemp` | int, celsiusDegrees | read, report | scaling vs. app display unconfirmed |
+| `WaterTemp` | int, celsiusDegrees | read, report | **confirmed** raw value is tenths of a degree (raw `200` == `20.0C`, sane pool temp vs. an absurd `200C` otherwise) — sensor.py divides by 10 |
 | `SaltLevel` | int, ppm | read, report | |
-| `internal_temperature` | int, celsiusDegrees | read, report | |
+| `internal_temperature` | int, celsiusDegrees | read, report | same tenths-of-a-degree scaling applied by inference (shares WaterTemp's unit type), not independently cross-checked |
 | `CellStatus` | enum ON/OFF/PURGE | read, report | |
 | `PumpStatus` | enum ON/OFF | read, report | not writable |
 | `PowerMode` | enum AUTO/OFF/ON | read, write, report | write confirmed working |
@@ -197,11 +197,12 @@ Followed shortly by a `REPORT_PROPERTY` message confirming the new value.
 1. Whether there's a legitimate "list my devices" call, or the device ID is
    just something you copy once from the app — the integration currently
    just asks for it during setup rather than trying to enumerate it.
-2. Confirm `WaterTemp` scaling against the app's displayed value (raw
-   readings alternated e.g. 215/210 within a few seconds, which may just be
-   simulator/test noise rather than a real reading).
+2. ~~Confirm `WaterTemp` scaling~~ — done. Live device confirmed raw `200` ==
+   20.0C. `internal_temperature`'s scaling is still inferred, not
+   independently confirmed.
 3. Traffic capture while using functions/timers not yet exercised (schedule
    changes, factory menu, firmware `upgrade` function).
 4. Token lifetime / whether a proactive refresh is needed vs. just
    reconnect-and-relogin on drop (current implementation just re-logs-in on
    every WebSocket reconnect, which is simple and has worked in testing).
+5. ~~Entities aren't yet grouped under a Home Assistant device~~ — done.
