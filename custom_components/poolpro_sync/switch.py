@@ -40,6 +40,7 @@ class PoolProSyncPhSwitch(CoordinatorEntity[PoolProSyncCoordinator], SwitchEntit
     def __init__(self, coordinator: PoolProSyncCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry.entry_id}_{_PH_SWITCH_KEY}"
+        self._attr_device_info = coordinator.device_info
 
     @property
     def is_on(self) -> bool | None:
