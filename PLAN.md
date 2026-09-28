@@ -29,41 +29,45 @@ cloud API traffic and wrapping it in a standard HACS custom component.
    automated-access clauses. For a personal integration the realistic risk
    is account suspension, not legal action — but know it going in.
 
-Nothing in phase 2+ should be written until `API_NOTES.md` has real,
-captured endpoint data — don't guess at the API shape.
+Status: **done** — see `API_NOTES.md` for the full captured protocol
+(HTTP login/device-detail, plus a JetLinks WebSocket messaging protocol for
+live property reports and writes).
 
 ## 2. Architecture
 
-Standard modern HA custom integration pattern:
+Actual architecture, updated once discovery revealed the real protocol is
+WebSocket-push, not simple REST polling:
 
 ```
 custom_components/poolpro_sync/
 ├── __init__.py          # setup, config entry lifecycle
-├── manifest.json        # domain, requirements, version
-├── config_flow.py       # UI-based setup (login credentials)
-├── coordinator.py       # DataUpdateCoordinator - polls PoolPro cloud API
-├── api.py               # thin async client wrapping the reverse-engineered API
-├── const.py             # DOMAIN, default scan interval, etc.
-├── sensor.py            # temp, pH, chlorine, salt, pump status, etc.
-├── switch.py            # pump on/off, lights, if controllable
-├── number.py / climate.py  # heater setpoint if applicable
-├── diagnostics.py       # redacted diagnostics for bug reports
+├── manifest.json        # domain, requirements, version (iot_class: cloud_push)
+├── config_flow.py       # UI-based setup (device ID, not user credentials)
+├── coordinator.py       # push-based DataUpdateCoordinator fed by the websocket
+├── api.py               # HTTP client + JetLinks messaging websocket client
+├── const.py             # DOMAIN, default host/port, refresh interval
+├── sensor.py            # temp, salt, cell status, chlorine output, etc.
+├── switch.py            # pH dosing pump (the one writable boolean property)
+├── select.py            # PowerMode, WorkMode (writable enum properties)
 └── strings.json / translations/en.json
 ```
 
 Key points:
 
-- `api.py` owns all HTTP calls (via `aiohttp`, reusing HA's shared client
-  session), token refresh, and retry/backoff on transient failures.
-- `coordinator.py` polls on an interval (start conservative — 60–120s — to
-  avoid rate limiting or account flags) and fans data out to all entities
-  via `DataUpdateCoordinator` + `CoordinatorEntity`.
-- `config_flow.py` takes credentials, validates them against the real API
-  during setup, and stores them in HA's encrypted config entry storage —
-  never in YAML.
-- Controls (pump, lights, heater) are exposed as native HA platforms
-  (`switch`, `number`, `climate`) rather than custom services, so they work
-  naturally in automations/dashboards.
+- `api.py` has two pieces: `PoolProSyncClient` (HTTP login + device detail)
+  and `PoolProSyncWebSocketClient` (maintains the persistent messaging
+  WebSocket, re-authenticates and reconnects with backoff on drop).
+- There's no per-user login — the app uses one fixed backend credential and
+  addresses equipment purely by device ID. `config_flow.py` asks for your
+  device ID (found in the app) instead of a username/password.
+- `coordinator.py` is push-based: `DataUpdateCoordinator.async_set_updated_data()`
+  is called whenever the websocket delivers a `REPORT_PROPERTY` batch, merged
+  into a running state dict. A periodic `triggerReport` invocation
+  (`FULL_REFRESH_INTERVAL_SECONDS`) requests a full snapshot so
+  rarely-changing properties don't go stale.
+- Writable properties (`PowerMode`, `WorkMode`, `pHSwitch`) go out as
+  `WRITE_PROPERTY` messages over the same websocket — confirmed working
+  against the real device during capture.
 
 ## 3. Testing strategy
 
@@ -76,15 +80,19 @@ Key points:
 
 ## 4. Milestones
 
-1. **Discovery** — Traffic capture + `API_NOTES.md`. No integration code yet.
-2. **API client** — `api.py` + `config_flow.py`, validated against a real
-   login.
-3. **Read-only sensors** — Coordinator + sensors (temp, pH, chlorine, etc.)
-   working end-to-end against a real HA instance.
-4. **Controls** — switch/number/climate entities if the API supports writes;
-   diagnostics; translations.
-5. **Release** — Tests passing, HACS validation green, README complete, tag
-   `v0.1.0`, submit as a HACS custom repository.
+1. **Discovery** — done. Full HTTP + WebSocket protocol captured in
+   `API_NOTES.md`.
+2. **API client** — done. `api.py` implements login, device detail, and the
+   WebSocket messaging client, with passing unit tests against a real
+   aiohttp test server.
+3. **Read-only sensors** — done. `sensor.py` covers the confirmed telemetry
+   properties.
+4. **Controls** — done for the properties confirmed writable so far
+   (`PowerMode`, `WorkMode` via `select.py`, `pHSwitch` via `switch.py`).
+   More can be added as more functions/properties get exercised and
+   captured.
+5. **Release** — remaining: manual smoke test against a live HA instance,
+   confirm `WaterTemp` scaling, HACS validation, tag `v0.1.0`.
 
 ## 5. Known risks
 
