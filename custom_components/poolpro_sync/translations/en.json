@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Connect to PoolPro Sync",
-        "description": "Enter your pool controller's device ID, found in the PoolPro Sync app's device details screen (a MAC-like string, e.g. \"1CC3ABE2DD82\").",
+        "description": "Enter your pool controller's device ID, found in the PoolPro Sync app's device details screen (a MAC-like string, e.g. \"AABBCC112233\").",
         "data": {
           "device_id": "Device ID",
           "product_id": "Product ID",

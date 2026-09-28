@@ -60,7 +60,7 @@ talking to this API. Response (trimmed):
 
 Header: `X-Access-Token: {token}`
 
-`{device_id}` is a MAC-like identifier (e.g. `1CC3ABE2DD82`) found in the
+`{device_id}` is a MAC-like identifier (e.g. `AABBCC112233`) found in the
 PoolPro Sync app's device details screen — used as-is, not looked up via a
 separate "list my devices" call (not implemented here — see below).
 
