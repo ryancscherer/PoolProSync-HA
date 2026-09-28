@@ -1,59 +1,207 @@
 # PoolPro Sync API Notes (reverse-engineered)
 
-> Fill this in as you capture real traffic from the PoolPro Sync app with a
-> MITM proxy. Nothing here is confirmed yet — this is a template.
+PoolPro Sync's backend is a **JetLinks**-based IoT platform (a Chinese
+open-source IoT device management stack). The app talks to it over plain
+HTTP/WebSocket, not the `apiali.crystalas.com` HTTPS host (that host appears
+to be unrelated background/analytics traffic — every capture showed it only
+as an empty `CONNECT` tunnel).
 
 ## Base URL
 
-- `TODO` (e.g. `https://api.poolprosync.com/v1`)
+- `http://47.236.42.212:8850/api/` — plain HTTP, confirmed via full packet
+  capture (headers + bodies).
+- Also seen: `gac1/gac2/bgac/s1/s2/bs1/er.dcloud.net.cn` — DCloud/uni-app
+  framework infrastructure (the app is built on uni-app/HBuilder). Unrelated
+  to the pool data API.
 
 ## Authentication
 
-- Flow type: `TODO` (username/password → JWT? OAuth2? API key?)
-- Login endpoint: `TODO`
-  - Request:
-    ```json
-    {}
-    ```
-  - Response:
-    ```json
-    {}
-    ```
-- Token storage: `TODO` (header name, cookie, bearer token?)
-- Token expiry / refresh endpoint: `TODO`
+`POST /api/authorize/login`
 
-## Endpoints
+Request body:
+```json
+{
+  "username": "websocket",
+  "password": "qushiyun@IOT123",
+  "remember": false,
+  "expires": 3600000,
+  "verifyCode": "",
+  "verifyKey": ""
+}
+```
 
-### List devices / pools
+This is a fixed, non-account-specific login baked into the app itself —
+there's no separate "your PoolPro Sync account" credential involved in
+talking to this API. Response (trimmed):
 
-- `METHOD TODO /path/TODO`
-- Response shape:
-  ```json
-  {}
-  ```
+```json
+{
+  "message": "success",
+  "result": {
+    "token": "<session token>",
+    "expires": 3600000,
+    "userId": "...",
+    "user": { "username": "websocket", "...": "..." }
+  },
+  "status": 200
+}
+```
 
-### Telemetry / status
+- `result.token` is used as:
+  - the `X-Access-Token` header on subsequent HTTP requests, and
+  - the path segment in the messaging WebSocket URL:
+    `ws://<host>:<port>/api/messaging/{token}`
+- The app re-logs-in fairly often (observed several times per session) —
+  treat the token as short-lived and re-authenticate on WebSocket reconnect.
 
-- `METHOD TODO /path/TODO`
-- Fields observed (fill in as discovered):
-  | Field | Type | Meaning | Units |
-  |---|---|---|---|
-  | | | | |
+## Device detail (metadata/schema)
 
-### Controls (if any)
+`GET /api/device-instance/{device_id}/detail`
 
-| Action | Method | Endpoint | Payload |
+Header: `X-Access-Token: {token}`
+
+`{device_id}` is a MAC-like identifier (e.g. `AABBCC112233`) found in the
+PoolPro Sync app's device details screen — used as-is, not looked up via a
+separate "list my devices" call (not implemented here — see below).
+
+Response `result.metadata` is a JSON-encoded string containing the full
+JetLinks "thing model": a `properties` array (id, name, value type, unit,
+read/write/report capability) plus `functions` (invokable commands) and
+`events`. This is effectively the device's full schema — see
+`custom_components/poolpro_sync/sensor.py`, `switch.py`, and `select.py` for
+the subset currently wired up as HA entities. Confirmed device in this
+capture: product `SLIMLINE`, a salt chlorinator ("SL系列盐氯机").
+
+Key properties confirmed live (via the WebSocket, see below):
+
+| Property | Type/Unit | Capability | Notes |
 |---|---|---|---|
-| Pump on/off | | | |
-| Heater setpoint | | | |
-| Lights | | | |
+| `WaterTemp` | int, celsiusDegrees | read, report | scaling vs. app display unconfirmed |
+| `SaltLevel` | int, ppm | read, report | |
+| `internal_temperature` | int, celsiusDegrees | read, report | |
+| `CellStatus` | enum ON/OFF/PURGE | read, report | |
+| `PumpStatus` | enum ON/OFF | read, report | not writable |
+| `PowerMode` | enum AUTO/OFF/ON | read, write, report | write confirmed working |
+| `WorkMode` | enum NULL/SPA/WINTER/BOOST/BACKWASH/SALT_TEST/SALT_ADD | read, write, report | |
+| `pHStatus` | enum ON/OFF | read, report | |
+| `pHSwitch` | enum, values `"0"`/`"1"` (not "OFF"/"ON") | read, write, report | |
+| `ActualOutput` / `OutputSetPoint` | int, percent | read(/write), report | |
+| `ChlorineProduction` | int, gramme | read, report | |
+| `COPPER_LEVEL` | float, ppm, scale 2 | read, write, report | mineral/copper systems |
+| `Fault` | int | report | fault/alarm code |
+| `WIFI_RSSI` | int | read, report | |
 
-## Polling behavior observed in the app
+Many more properties exist for timers (`T1_On HH/MM`, `P1_On HH/MM`, etc.),
+LCD brightness/contrast, socket assignments, and factory-menu settings — see
+the full `metadata` blob for the complete list.
 
-- Interval: `TODO`
-- Any rate limiting seen (429s, throttling)? `TODO`
+## Real-time messaging (WebSocket)
 
-## Quirks / gotchas
+`GET ws://{host}:{port}/api/messaging/{token}` — upgrades to a persistent
+WebSocket (`101 Switching Protocols`). This is the primary way to get live
+data; polling the detail endpoint isn't necessary.
 
-- Certificate pinning? `TODO`
-- Any session/device-binding behavior? `TODO`
+### Subscribe to property reports
+
+```json
+{
+  "type": "sub",
+  "topic": "/device/{productId}/{deviceId}/**",
+  "parameter": { "headers": { "async": false } },
+  "id": "<timestamp-ms>"
+}
+```
+
+The server then pushes messages as properties change:
+
+```json
+{
+  "payload": {
+    "deviceId": "...",
+    "messageType": "REPORT_PROPERTY",
+    "properties": { "WaterTemp": 215, "SaltLevel": 3693, "...": "..." },
+    "timestamp": 1790593755812
+  },
+  "topic": "/device/{productId}/{deviceId}/message/property/report",
+  "type": "result"
+}
+```
+
+Properties arrive in batches, not all at once — the integration merges
+incoming batches into a running state dict rather than expecting a single
+full snapshot per message.
+
+### Request an immediate full snapshot
+
+Invoke the device's `triggerReport` function via the message-sender topic:
+
+```json
+{
+  "type": "sub",
+  "topic": "/device-message-sender/{productId}/{deviceId}",
+  "parameter": {
+    "messageType": "INVOKE_FUNCTION",
+    "inputs": [],
+    "timestamp": "<timestamp-ms>",
+    "functionId": "triggerReport",
+    "deviceId": "{deviceId}",
+    "headers": { "async": false }
+  },
+  "id": "<timestamp-ms>"
+}
+```
+
+This triggers a burst of `REPORT_PROPERTY` messages covering (most of) the
+full property set. The integration calls this on connect and then
+periodically (`FULL_REFRESH_INTERVAL_SECONDS` in `const.py`) to avoid stale
+values for properties that don't change often.
+
+### Write a property
+
+Confirmed working — captured toggling `PowerMode` from `AUTO` to `OFF` and
+back through the real app:
+
+```json
+{
+  "type": "sub",
+  "topic": "/device-message-sender/{productId}/{deviceId}",
+  "parameter": {
+    "messageType": "WRITE_PROPERTY",
+    "header": { "async": false },
+    "deviceId": "{deviceId}",
+    "messageId": "<timestamp-ms>",
+    "timestamp": "<timestamp-ms>",
+    "properties": { "PowerMode": "OFF" }
+  },
+  "id": "<timestamp-ms>"
+}
+```
+
+Reply:
+
+```json
+{
+  "payload": {
+    "messageType": "WRITE_PROPERTY_REPLY",
+    "properties": { "PowerMode": "OFF" },
+    "success": true
+  },
+  "type": "result"
+}
+```
+
+Followed shortly by a `REPORT_PROPERTY` message confirming the new value.
+
+## Still open
+
+1. Whether there's a legitimate "list my devices" call, or the device ID is
+   just something you copy once from the app — the integration currently
+   just asks for it during setup rather than trying to enumerate it.
+2. Confirm `WaterTemp` scaling against the app's displayed value (raw
+   readings alternated e.g. 215/210 within a few seconds, which may just be
+   simulator/test noise rather than a real reading).
+3. Traffic capture while using functions/timers not yet exercised (schedule
+   changes, factory menu, firmware `upgrade` function).
+4. Token lifetime / whether a proactive refresh is needed vs. just
+   reconnect-and-relogin on drop (current implementation just re-logs-in on
+   every WebSocket reconnect, which is simple and has worked in testing).

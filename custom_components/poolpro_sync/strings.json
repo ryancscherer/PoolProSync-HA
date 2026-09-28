@@ -3,19 +3,22 @@
     "step": {
       "user": {
         "title": "Connect to PoolPro Sync",
+        "description": "Enter your pool controller's device ID, found in the PoolPro Sync app's device details screen (a MAC-like string, e.g. \"AABBCC112233\").",
         "data": {
-          "username": "Username",
-          "password": "Password"
+          "device_id": "Device ID",
+          "product_id": "Product ID",
+          "host": "Host (advanced)",
+          "port": "Port (advanced)"
         }
       }
     },
     "error": {
-      "invalid_auth": "Invalid username or password.",
-      "cannot_connect": "Could not connect to PoolPro Sync.",
+      "invalid_auth": "Could not authenticate with PoolPro Sync.",
+      "cannot_connect": "Could not connect to PoolPro Sync, or the device ID was not found.",
       "unknown": "Unexpected error."
     },
     "abort": {
-      "already_configured": "This PoolPro Sync account is already configured."
+      "already_configured": "This device is already configured."
     }
   }
 }
