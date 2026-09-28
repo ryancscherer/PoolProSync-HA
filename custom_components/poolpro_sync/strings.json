@@ -1,0 +1,21 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to PoolPro Sync",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid username or password.",
+      "cannot_connect": "Could not connect to PoolPro Sync.",
+      "unknown": "Unexpected error."
+    },
+    "abort": {
+      "already_configured": "This PoolPro Sync account is already configured."
+    }
+  }
+}
