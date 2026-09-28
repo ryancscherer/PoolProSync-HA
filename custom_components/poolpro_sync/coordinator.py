@@ -13,6 +13,7 @@ from typing import Any
 
 import aiohttp
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .api import PoolProSyncClient, PoolProSyncWebSocketClient
@@ -37,6 +38,12 @@ class PoolProSyncCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.device_id = device_id
         self.product_id = product_id
         self.data: dict[str, Any] = {}
+        self.device_info = DeviceInfo(
+            identifiers={(DOMAIN, device_id)},
+            name=device_id,
+            manufacturer="PoolPro Sync",
+            model=product_id,
+        )
         self._ws_client = PoolProSyncWebSocketClient(
             session, client, product_id, device_id, self._handle_properties
         )

@@ -66,6 +66,7 @@ class PoolProSyncSelect(CoordinatorEntity[PoolProSyncCoordinator], SelectEntity)
         self.entity_description = description
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"
         self._attr_options = list(description.options)
+        self._attr_device_info = coordinator.device_info
 
     @property
     def current_option(self) -> str | None:
