@@ -1,6 +1,8 @@
 <p align="center">
-  <img src="assets/logo.png" alt="Pool Pro Sync HA" width="480">
+  <img src="assets/icon@2x.png" alt="Pool Pro Sync HA" width="160">
 </p>
+
+<h1 align="center">Pool Pro Sync HA</h1>
 
 <p align="center">
   <a href="https://github.com/hacs/integration"><img alt="HACS Custom" src="https://img.shields.io/badge/HACS-Custom-41BDF5.svg"></a>
