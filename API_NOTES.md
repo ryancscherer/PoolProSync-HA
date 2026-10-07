@@ -156,6 +156,35 @@ full property set. The integration calls this on connect and then
 periodically (`FULL_REFRESH_INTERVAL_SECONDS` in `const.py`) to avoid stale
 values for properties that don't change often.
 
+**Confirmed: this can time out.** Multiple captures show the reply arriving
+~10 seconds later as a failure, not a property burst:
+
+```json
+{"payload":{"code":"TIME_OUT","deviceId":"1CC3ABE2DD82","functionId":"triggerReport",
+"message":"error.code.time_out","messageType":"INVOKE_FUNCTION_REPLY","success":false,...}}
+```
+
+The same timeout behavior was also observed on `optionRequest` (the
+menu-navigation function used for remote button-press emulation) — this
+looks like a genuine device-side latency/reliability characteristic (the
+physical controller being slow or unresponsive over its own MQTT link to
+the gateway), not something wrong with the request itself. The integration
+doesn't currently retry on timeout — it just waits for the next periodic
+`triggerReport` call, which is a reasonable way to handle an
+intermittent/flaky device response. `api.py` logs these failures at debug
+level for visibility (`INVOKE_FUNCTION_REPLY` with `success: false`).
+
+Separately, across every capture so far (dozens of sessions, both
+successful and timed-out `triggerReport` calls), `ChlorineProduction`,
+`COPPER_LEVEL`, and `WIFI_RSSI` have **never once appeared** in a
+`REPORT_PROPERTY` batch — even in sessions where `triggerReport` succeeded
+and other properties came through fine. That's strong evidence this
+particular unit's firmware simply doesn't populate those three properties
+(no copper ionizer installed, `WIFI_RSSI` not wired up in this firmware
+build, etc.) rather than it being a timing/reliability issue. If so, those
+three sensor entities will stay at `unknown` indefinitely on this hardware,
+which is expected behavior, not a bug.
+
 ### Write a property
 
 Confirmed working — captured toggling `PowerMode` from `AUTO` to `OFF` and
@@ -191,6 +220,9 @@ Reply:
 ```
 
 Followed shortly by a `REPORT_PROPERTY` message confirming the new value.
+
+Also confirmed working: writing `ReriodSet` (pump run cycle,
+`DOUBLE_CYCLE`/`SINGLE_CYCLE`) via the same mechanism.
 
 ## Still open
 
