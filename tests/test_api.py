@@ -132,3 +132,33 @@ def test_websocket_client_ignores_non_property_messages():
     ws_client._handle_message(json.dumps({"requestId": "1", "type": "complete"}))
     ws_client._handle_message("not json")
     assert received == []
+
+
+def test_websocket_client_handles_function_timeout_without_crashing(caplog):
+    received: list[dict] = []
+    ws_client = PoolProSyncWebSocketClient(
+        session=None,
+        client=None,
+        product_id="SLIMLINE",
+        device_id="TESTDEVICE",
+        on_properties=received.append,
+    )
+    message = json.dumps(
+        {
+            "payload": {
+                "code": "TIME_OUT",
+                "deviceId": "TESTDEVICE",
+                "functionId": "triggerReport",
+                "message": "error.code.time_out",
+                "messageType": "INVOKE_FUNCTION_REPLY",
+                "success": False,
+            },
+            "topic": "/device-message-sender/SLIMLINE/TESTDEVICE",
+            "type": "result",
+        }
+    )
+    with caplog.at_level("DEBUG"):
+        ws_client._handle_message(message)
+    assert received == []
+    assert "triggerReport" in caplog.text
+    assert "error.code.time_out" in caplog.text

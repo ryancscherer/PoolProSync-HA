@@ -253,7 +253,17 @@ class PoolProSyncWebSocketClient:
         payload = data.get("payload")
         if not isinstance(payload, dict):
             return
-        if payload.get("messageType") == "REPORT_PROPERTY":
+        message_type = payload.get("messageType")
+        if message_type == "REPORT_PROPERTY":
             properties = payload.get("properties")
             if properties:
                 self._on_properties(properties)
+        elif message_type == "INVOKE_FUNCTION_REPLY" and payload.get("success") is False:
+            # The device itself can be slow/unresponsive over its own MQTT
+            # link to the gateway - a timeout here doesn't mean our request
+            # was malformed, and periodic refresh will simply retry later.
+            _LOGGER.debug(
+                "PoolPro Sync function '%s' failed: %s",
+                payload.get("functionId"),
+                payload.get("message", payload.get("code")),
+            )
