@@ -17,7 +17,6 @@ from .const import (
     CONF_PRODUCT_ID,
     DEFAULT_HOST,
     DEFAULT_PORT,
-    DEFAULT_PRODUCT_ID,
     DOMAIN,
 )
 
@@ -26,7 +25,6 @@ _LOGGER = logging.getLogger(__name__)
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_DEVICE_ID): str,
-        vol.Optional(CONF_PRODUCT_ID, default=DEFAULT_PRODUCT_ID): str,
         vol.Optional(CONF_HOST, default=DEFAULT_HOST): str,
         vol.Optional(CONF_PORT, default=DEFAULT_PORT): int,
     }
@@ -39,7 +37,10 @@ class PoolProSyncConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     There's no per-account login — the app uses a fixed backend credential
     and identifies your equipment purely by its device ID (found in the
     PoolPro Sync app's device details screen, e.g. a MAC-like string such as
-    "AABBCC112233").
+    "AABBCC112233"). The device's product/model ID (e.g. "SLIMLINE") is not
+    something you need to look up — it's returned by the device-detail call
+    we already make to validate the device ID, so it's detected
+    automatically rather than asked for here.
     """
 
     VERSION = 1
@@ -58,7 +59,9 @@ class PoolProSyncConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
             try:
                 await client.async_login()
-                await client.async_get_device_detail(user_input[CONF_DEVICE_ID])
+                detail = await client.async_get_device_detail(
+                    user_input[CONF_DEVICE_ID]
+                )
             except PoolProSyncAuthError:
                 errors["base"] = "invalid_auth"
             except PoolProSyncApiError:
@@ -67,11 +70,16 @@ class PoolProSyncConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 _LOGGER.exception("Unexpected error validating PoolPro Sync device")
                 errors["base"] = "unknown"
             else:
-                await self.async_set_unique_id(user_input[CONF_DEVICE_ID])
-                self._abort_if_unique_id_configured()
-                return self.async_create_entry(
-                    title=user_input[CONF_DEVICE_ID], data=user_input
-                )
+                product_id = detail.get("productId")
+                if not product_id:
+                    errors["base"] = "cannot_connect"
+                else:
+                    await self.async_set_unique_id(user_input[CONF_DEVICE_ID])
+                    self._abort_if_unique_id_configured()
+                    return self.async_create_entry(
+                        title=user_input[CONF_DEVICE_ID],
+                        data={**user_input, CONF_PRODUCT_ID: product_id},
+                    )
 
         return self.async_show_form(
             step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
