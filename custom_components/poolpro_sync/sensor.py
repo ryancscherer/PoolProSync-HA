@@ -1,7 +1,7 @@
 """Sensor platform for PoolPro Sync.
 
-Property keys and units come from the device's JetLinks metadata schema
-(see API_NOTES.md). WaterTemp is confirmed reported in tenths of a degree
+Property keys and units come from the device's JetLinks metadata schema.
+WaterTemp is confirmed reported in tenths of a degree
 (raw 200 == 20.0C, confirmed against a live device) and scaled accordingly.
 internal_temperature is NOT scaled - an earlier assumption that it shared
 WaterTemp's tenths-of-a-degree scaling was disproved by a live reading
