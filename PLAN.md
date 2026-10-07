@@ -1,4 +1,4 @@
-# PoolPro Sync → Home Assistant Integration Plan
+# Pool Pro Sync HA — Integration Plan
 
 PoolPro Sync only has a cloud-backed mobile app (no public API, no local
 hub). This integration works by capturing/reverse-engineering the app's
