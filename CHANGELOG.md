@@ -37,4 +37,3 @@ All notable changes to this project are documented here.
   (water temperature, salt level, cell/pump status, chlorine output, fault
   code) and controls (power mode, work mode, pH pump) for PoolPro Sync
   salt chlorinators, built from a fully reverse-engineered cloud API.
-  See [`API_NOTES.md`](API_NOTES.md) for the protocol documentation.

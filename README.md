@@ -28,9 +28,7 @@ Status, Chlorine Output, Fault Code
 
 **Controls:** Power Mode (select), Work Mode (select), pH Pump (switch)
 
-See [`API_NOTES.md`](API_NOTES.md) for the full reverse-engineered protocol,
-[`CHANGELOG.md`](CHANGELOG.md) for release history, and
-[`PLAN.md`](PLAN.md) for project background.
+See [`CHANGELOG.md`](CHANGELOG.md) for release history.
 
 ### Known limitations
 
@@ -80,14 +78,10 @@ custom_components/poolpro_sync/        # the Home Assistant integration
 custom_components/poolpro_sync/brand/  # local brand icon (HA 2026.3+)
 tests/                                 # pytest suite
 assets/                                # icon used in this README
-PLAN.md                                # project plan / roadmap
-API_NOTES.md                           # reverse-engineered API documentation
 CHANGELOG.md                           # release history
 ```
 
 ## Development
-
-See [`PLAN.md`](PLAN.md) for the full build plan and milestones.
 
 ```bash
 python -m venv .venv
@@ -98,12 +92,10 @@ pytest
 
 ## Contributing
 
-Issues and pull requests are welcome. If you're debugging a protocol
-question, `API_NOTES.md` documents everything confirmed about the API so
-far — please add to it rather than duplicating captures. If you have a
-different PoolPro Sync product line, a packet capture (HAR file, with TLS
-decryption if possible) showing its device-detail response and WebSocket
-property reports would help extend support.
+Issues and pull requests are welcome. If you have a different PoolPro Sync
+product line, a packet capture (HAR file, with TLS decryption if possible)
+showing its device-detail response and WebSocket property reports would
+help extend support.
 
 ## Disclaimer
 

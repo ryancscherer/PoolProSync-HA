@@ -1,6 +1,6 @@
 """Client for the PoolPro Sync cloud API (a JetLinks-based IoT backend).
 
-Protocol reverse-engineered from packet captures — see API_NOTES.md.
+Protocol reverse-engineered from packet captures.
 
 The app authenticates with a fixed, non-account-specific login before
 addressing a device by its device ID, then uses a JetLinks messaging
