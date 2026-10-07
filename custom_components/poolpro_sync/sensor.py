@@ -2,9 +2,16 @@
 
 Property keys and units come from the device's JetLinks metadata schema
 (see API_NOTES.md). WaterTemp is confirmed reported in tenths of a degree
-(raw 200 == 20.0C, confirmed against a live device) and scaled accordingly;
-internal_temperature shares the same unit type so the same scaling is
-applied, though not independently cross-checked against the app's display.
+(raw 200 == 20.0C, confirmed against a live device) and scaled accordingly.
+internal_temperature is NOT scaled - an earlier assumption that it shared
+WaterTemp's tenths-of-a-degree scaling was disproved by a live reading
+(raw 38 displayed as 3.8C, an implausible controller temperature; 38C is
+the sane reading).
+
+ChlorineProduction, COPPER_LEVEL, and WIFI_RSSI are intentionally omitted -
+confirmed across dozens of captured sessions (including fully successful
+ones) to never be reported by this unit's firmware, so they'd stay
+permanently unknown.
 """
 
 from __future__ import annotations
@@ -49,7 +56,6 @@ SENSOR_DESCRIPTIONS: tuple[PoolProSyncSensorDescription, ...] = (
         device_class=SensorDeviceClass.TEMPERATURE,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         state_class=SensorStateClass.MEASUREMENT,
-        scale=0.1,
     ),
     PoolProSyncSensorDescription(
         key="SaltLevel",
@@ -64,24 +70,7 @@ SENSOR_DESCRIPTIONS: tuple[PoolProSyncSensorDescription, ...] = (
         native_unit_of_measurement="%",
         state_class=SensorStateClass.MEASUREMENT,
     ),
-    PoolProSyncSensorDescription(
-        key="ChlorineProduction",
-        name="Chlorine Production",
-        native_unit_of_measurement="g",
-        state_class=SensorStateClass.MEASUREMENT,
-    ),
-    PoolProSyncSensorDescription(
-        key="COPPER_LEVEL",
-        name="Copper Level",
-        native_unit_of_measurement="ppm",
-        state_class=SensorStateClass.MEASUREMENT,
-    ),
     PoolProSyncSensorDescription(key="Fault", name="Fault Code"),
-    PoolProSyncSensorDescription(
-        key="WIFI_RSSI",
-        name="Wi-Fi Signal",
-        state_class=SensorStateClass.MEASUREMENT,
-    ),
 )
 
 
