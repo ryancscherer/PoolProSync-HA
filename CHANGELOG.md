@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here.
 
+## 0.2.1
+
+- Added a local brand icon (`custom_components/poolpro_sync/brand/`), using
+  Home Assistant 2026.3's support for custom integrations shipping their own
+  icon directly. No separate `home-assistant/brands` submission needed.
+
 ## 0.2.0
 
 - Removed `Chlorine Production`, `Copper Level`, and `Wi-Fi Signal` sensors —
