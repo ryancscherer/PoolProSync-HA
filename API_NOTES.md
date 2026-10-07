@@ -78,7 +78,7 @@ Key properties confirmed live (via the WebSocket, see below):
 |---|---|---|---|
 | `WaterTemp` | int, celsiusDegrees | read, report | **confirmed** raw value is tenths of a degree (raw `200` == `20.0C`, sane pool temp vs. an absurd `200C` otherwise) — sensor.py divides by 10 |
 | `SaltLevel` | int, ppm | read, report | |
-| `internal_temperature` | int, celsiusDegrees | read, report | same tenths-of-a-degree scaling applied by inference (shares WaterTemp's unit type), not independently cross-checked |
+| `internal_temperature` | int, celsiusDegrees | read, report | **confirmed NOT scaled** — a live reading of raw `38` would be `3.8C` if scaled like WaterTemp (implausible for controller electronics) vs. a sane `38C` unscaled. sensor.py does not divide this one |
 | `CellStatus` | enum ON/OFF/PURGE | read, report | |
 | `PumpStatus` | enum ON/OFF | read, report | not writable |
 | `PowerMode` | enum AUTO/OFF/ON | read, write, report | write confirmed working |
@@ -86,10 +86,11 @@ Key properties confirmed live (via the WebSocket, see below):
 | `pHStatus` | enum ON/OFF | read, report | |
 | `pHSwitch` | enum, values `"0"`/`"1"` (not "OFF"/"ON") | read, write, report | |
 | `ActualOutput` / `OutputSetPoint` | int, percent | read(/write), report | |
-| `ChlorineProduction` | int, gramme | read, report | |
-| `COPPER_LEVEL` | float, ppm, scale 2 | read, write, report | mineral/copper systems |
+| `ChlorineProduction` | int, gramme | read, report | **confirmed never reported** by this unit's firmware across dozens of sessions — not exposed as an HA entity |
+| `COPPER_LEVEL` | float, ppm, scale 2 | read, write, report | mineral/copper systems — **confirmed never reported** by this unit (no copper ionizer installed); not exposed as an HA entity |
 | `Fault` | int | report | fault/alarm code |
-| `WIFI_RSSI` | int | read, report | |
+| `WIFI_RSSI` | int | read, report | **confirmed never reported** by this unit's firmware; not exposed as an HA entity |
+| `ReriodSet` | enum DOUBLE_CYCLE/SINGLE_CYCLE | read, write, report | pump run cycle mode — write confirmed working |
 
 Many more properties exist for timers (`T1_On HH/MM`, `P1_On HH/MM`, etc.),
 LCD brightness/contrast, socket assignments, and factory-menu settings — see
@@ -230,8 +231,8 @@ Also confirmed working: writing `ReriodSet` (pump run cycle,
    just something you copy once from the app — the integration currently
    just asks for it during setup rather than trying to enumerate it.
 2. ~~Confirm `WaterTemp` scaling~~ — done. Live device confirmed raw `200` ==
-   20.0C. `internal_temperature`'s scaling is still inferred, not
-   independently confirmed.
+   20.0C. ~~Confirm `internal_temperature` scaling~~ — done, confirmed NOT
+   scaled (see properties table above).
 3. Traffic capture while using functions/timers not yet exercised (schedule
    changes, factory menu, firmware `upgrade` function).
 4. Token lifetime / whether a proactive refresh is needed vs. just

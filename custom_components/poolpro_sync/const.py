@@ -9,7 +9,6 @@ CONF_PORT = "port"
 
 DEFAULT_HOST = "47.236.42.212"
 DEFAULT_PORT = 8850
-DEFAULT_PRODUCT_ID = "SLIMLINE"
 
 # Full-state refresh interval. The device pushes property updates on its own
 # schedule, but not every property changes often enough to guarantee a

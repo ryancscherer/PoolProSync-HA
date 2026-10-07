@@ -1,11 +1,11 @@
 {
   "domain": "poolpro_sync",
-  "name": "PoolPro Sync",
+  "name": "Pool Pro Sync HA",
   "codeowners": ["@ryancscherer"],
   "config_flow": true,
   "documentation": "https://github.com/ryancscherer/PoolProSync-HA",
   "iot_class": "cloud_push",
   "issue_tracker": "https://github.com/ryancscherer/PoolProSync-HA/issues",
   "requirements": ["aiohttp"],
-  "version": "0.1.2"
+  "version": "0.2.0"
 }
