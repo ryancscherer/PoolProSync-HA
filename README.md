@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://github.com/hacs/integration"><img alt="HACS Custom" src="https://img.shields.io/badge/HACS-Custom-41BDF5.svg"></a>
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg"></a>
-  <img alt="Version" src="https://img.shields.io/badge/version-0.2.0-informational">
+  <img alt="Version" src="https://img.shields.io/badge/version-0.2.1-informational">
 </p>
 
 A custom [HACS](https://hacs.xyz/) integration that exposes **PoolPro Sync**
@@ -66,26 +66,23 @@ post yours publicly (forum posts, screenshots, support tickets).
 
 ## Icon in Home Assistant's UI
 
-HACS and the Settings → Devices & Services page don't read an icon from
-this repository directly — they pull it from the community-maintained
-[home-assistant/brands](https://github.com/home-assistant/brands)
-repository. The `brands/` folder here holds the exact files/layout that
-repo expects (`custom_integrations/poolpro_sync/icon.png` and
-`icon@2x.png`); submitting them there via a PR is a separate, one-time
-step still to be done. Until then, the integration works identically —
-Home Assistant just shows a generic/missing-icon placeholder instead of
-this one.
+Since Home Assistant 2026.3, custom integrations can ship their own brand
+icon directly — no separate repository submission needed. This repo's
+icon lives at `custom_components/poolpro_sync/brand/icon.png` (and
+`icon@2x.png`), and Home Assistant picks it up automatically. On older HA
+versions this folder is simply ignored and the integration falls back to
+a generic placeholder icon — everything else still works.
 
 ## Repo layout
 
 ```
-custom_components/poolpro_sync/   # the Home Assistant integration
-tests/                            # pytest suite
-assets/                           # icon/logo used in this README
-brands/                           # icon submission for home-assistant/brands
-PLAN.md                           # project plan / roadmap
-API_NOTES.md                      # reverse-engineered API documentation
-CHANGELOG.md                      # release history
+custom_components/poolpro_sync/        # the Home Assistant integration
+custom_components/poolpro_sync/brand/  # local brand icon (HA 2026.3+)
+tests/                                 # pytest suite
+assets/                                # icon used in this README
+PLAN.md                                # project plan / roadmap
+API_NOTES.md                           # reverse-engineered API documentation
+CHANGELOG.md                           # release history
 ```
 
 ## Development
