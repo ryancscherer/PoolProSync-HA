@@ -93,3 +93,7 @@ This project is released under the MIT license. See the LICENSE file for the ful
 ## Disclaimer
 
 This is an independent, community built integration. It is not made by, affiliated with, or endorsed by PoolPro Sync. It relies on behaviour of an unofficial, undocumented API, which could change at any time. The icon used in this project is an original design and is not PoolPro Sync's own artwork.
+
+## About the developer
+
+This project was built and is maintained by Ryan Scherer of Scherer Co. You can find more of his work at https://schererco.com/.
